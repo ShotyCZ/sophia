@@ -5,6 +5,7 @@ from core.context import SharedContext
 import logging
 import os
 import yaml
+import asyncio
 
 
 @pytest.fixture
@@ -56,5 +57,32 @@ async def test_llm_tool_execute_with_config(temp_config_file):
                 },
                 {"role": "user", "content": "Hello"},
             ],
+            timeout=30.0,
         )
         assert result_context.payload["llm_response"] == "Hi there!"
+
+
+@pytest.mark.asyncio
+async def test_llm_tool_timeout_handling(temp_config_file):
+    """Test that LLM tool properly handles timeouts using asyncio.wait_for."""
+    llm_tool = LLMTool()
+    llm_tool.setup({})
+
+    context = SharedContext(
+        session_id="test",
+        current_state="THINKING",
+        user_input="Test timeout",
+        history=[{"role": "user", "content": "Test timeout"}],
+        logger=logging.getLogger("test"),
+    )
+
+    # Mock litellm.acompletion to hang indefinitely
+    async def slow_mock(*args, **kwargs):
+        await asyncio.sleep(100)  # Simulate a very slow API call
+    
+    with patch("litellm.acompletion", new_callable=AsyncMock, side_effect=slow_mock):
+        result_context = await llm_tool.execute(context)
+        
+        # Should return timeout error message
+        assert "timeout" in result_context.payload["llm_response"].lower()
+

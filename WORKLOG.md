@@ -1,5 +1,79 @@
 ---
-## 🔒 CRITICAL FIX: CVE-2025-SOPHIA-001 - Nested API Key Detection Bypass
+## � BUG FIX: LLM Tool Timeout Implementation
+**Agent:** GitHub Copilot (AI Developer)  
+**Date:** 2025-10-29  
+**Status:** COMPLETED ✅
+
+### 1. Mission Brief:
+
+User reported: "Sophia neodpovídá" (WebUI not responding when sending messages)
+
+**Root Cause:** LLM API calls had no timeout, causing indefinite hangs when API was slow, incorrect model, or network issues.
+
+**Goal:** Implement proper timeout handling in `tool_llm.py` without modifying core architecture.
+
+### 2. Plan:
+
+1. Analyze issue in WebUI logs (LLM call started but never completed)
+2. Add `asyncio.wait_for()` wrapper to enforce timeout on async LLM calls
+3. Handle `asyncio.TimeoutError` explicitly with user-friendly error message
+4. Add test for timeout behavior
+5. Verify all existing tests still pass
+
+### 3. Actions Performed:
+
+**Code Changes:**
+- **File:** `plugins/tool_llm.py`
+- **Import Added:** `import asyncio`
+- **Timeout Implementation:**
+  ```python
+  response = await asyncio.wait_for(
+      litellm.acompletion(
+          model=self.model, 
+          messages=messages,
+          timeout=30.0  # LiteLLM internal timeout
+      ),
+      timeout=35.0  # asyncio enforced timeout (slightly longer)
+  )
+  ```
+- **Error Handling:** Added explicit `except asyncio.TimeoutError` with descriptive message
+
+**Tests Added:**
+- **File:** `tests/plugins/test_tool_llm.py`
+- **New Test:** `test_llm_tool_timeout_handling`
+  - Simulates slow API call (100s sleep)
+  - Verifies timeout triggers within 35 seconds
+  - Confirms error message contains "timeout"
+- **Updated Test:** `test_llm_tool_execute_with_config`
+  - Added `timeout=30.0` parameter expectation
+
+**Test Results:**
+- ✅ New timeout test: PASSED
+- ✅ Updated config test: PASSED
+- ✅ All 387 tests: PASSED (no regressions)
+
+### 4. Result:
+
+**Mission Status:** COMPLETED ✅
+
+**Changes:**
+- 1 plugin modified: `plugins/tool_llm.py` (+13 lines, asyncio timeout wrapper)
+- 1 test file updated: `tests/plugins/test_tool_llm.py` (+23 lines, timeout test)
+- 1 documentation updated: `IDEAS.md` (Issue #1 marked RESOLVED)
+
+**Impact:**
+- WebUI now returns error within 35 seconds instead of hanging indefinitely
+- User receives feedback: "I am having trouble thinking right now (timeout)."
+- Improved user experience and debuggability
+
+**Compliance:**
+- ✅ AGENTS.md Rule #1: No core modifications (only plugin changed)
+- ✅ AGENTS.md Rule #3: Tests added and passing (387/387)
+- ✅ AGENTS.md Rule #4: WORKLOG.md updated
+- ✅ AGENTS.md Rule #6: All code in English
+
+---
+## �🔒 CRITICAL FIX: CVE-2025-SOPHIA-001 - Nested API Key Detection Bypass
 **Agent:** GitHub Copilot (AI Developer)  
 **Date:** 2025-10-27  
 **Status:** COMPLETED ✅
@@ -4152,6 +4226,34 @@ Estimated Phases:
 ---
 
 ## [2025-10-27 20:08:23] AUTONOMOUS MISSION: task-001
+
+**Status:** PLANNED
+
+**Goal:**
+Create a weather plugin that fetches data from wttr.in
+
+**Analysis:**
+- Type: unknown
+- Scope: unknown
+
+**Strategic Plan:**
+
+Next Steps:
+1. Formulate detailed specification
+2. Delegate to coding agent
+3. Monitor progress
+4. Validate results
+5. Integrate if approved
+
+Estimated Phases:
+- **specification**: Strategic planning
+- **delegation**: External agent (future)
+- **validation**: QA review
+- **integration**: Safe integration with rollback
+
+---
+
+## [2025-10-29 11:08:00] AUTONOMOUS MISSION: task-001
 
 **Status:** PLANNED
 

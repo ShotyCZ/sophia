@@ -1,6 +1,7 @@
 import yaml
 import os
 import re
+import asyncio
 from plugins.base_plugin import BasePlugin, PluginType
 from core.context import SharedContext
 import litellm
@@ -87,10 +88,21 @@ class LLMTool(BasePlugin):
         context.logger.info(f"Calling LLM with {len(messages)} messages.")
         try:
             # Using litellm allows us to easily switch models and providers
-            response = await litellm.acompletion(model=self.model, messages=messages)
+            # Added asyncio.wait_for to enforce timeout properly on async calls
+            response = await asyncio.wait_for(
+                litellm.acompletion(
+                    model=self.model, 
+                    messages=messages,
+                    timeout=30.0  # LiteLLM internal timeout
+                ),
+                timeout=35.0  # asyncio enforced timeout (slightly longer)
+            )
             llm_response = response.choices[0].message.content
             context.payload["llm_response"] = llm_response
             context.logger.info("LLM response received successfully.")
+        except asyncio.TimeoutError:
+            context.logger.error(f"LLM call timed out after 35 seconds")
+            context.payload["llm_response"] = "I am having trouble thinking right now (timeout)."
         except Exception as e:
             context.logger.error(f"Error calling LLM: {e}", exc_info=True)
             context.payload["llm_response"] = "I am having trouble thinking right now."
