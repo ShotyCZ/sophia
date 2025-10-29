@@ -94,6 +94,10 @@ class AutonomousInterface(BasePlugin):
             Updated context with autonomous_response if command detected,
             otherwise unchanged context for other plugins to process
         """
+        # Handle None user_input gracefully
+        if context.user_input is None:
+            return context
+        
         user_input = context.user_input.strip()
         
         # Check if this is an autonomous command

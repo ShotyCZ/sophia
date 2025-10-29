@@ -13,8 +13,10 @@
         const messageInput = document.getElementById("message-input");
         const sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 
-        // Assign ws to window so playwright can access it
-        window.ws = new WebSocket(`ws://127.0.0.1:8000/ws/${sessionId}`);
+        // Use current hostname for WebSocket connection (works with port forwarding)
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.host;
+        window.ws = new WebSocket(`${wsProtocol}//${wsHost}/ws/${sessionId}`);
 
         window.ws.onmessage = function(event) {
             const message = document.createElement("p");

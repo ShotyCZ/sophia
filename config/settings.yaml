@@ -1,5 +1,5 @@
 llm:
-  model: "openrouter/google/gemini-2.5-flash-lite-preview-09-2025"
+  model: "openrouter/meta-llama/llama-3.2-3b-instruct:free"  # Free tier model that works
   api_key: "${OPENROUTER_API_KEY}" # SECURITY: API key from environment variable
 
 plugins:
