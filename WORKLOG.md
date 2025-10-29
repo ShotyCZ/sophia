@@ -1,5 +1,118 @@
 ---
-## � BUG FIX: LLM Tool Timeout Implementation
+## 🎨 IMPROVEMENT: WebUI Frontend Debugging and Enhancements
+**Agent:** GitHub Copilot (AI Developer)  
+**Date:** 2025-10-29  
+**Status:** COMPLETED ✅
+
+### 1. Mission Brief:
+
+User reported: "pořád nemám odpověď" - WebUI not displaying responses despite server sending them.
+
+**Root Cause:** Multiple frontend issues:
+1. Missing WebSocket event handlers (onopen, onerror, onclose)
+2. No visual status indicator for connection state
+3. No error handling for disconnections
+4. Browser caching old JavaScript code
+5. LLM API timeout message not user-friendly
+
+**Goal:** Debug and fix WebUI frontend to properly display all server responses.
+
+### 2. Plan:
+
+1. Add comprehensive WebSocket event handling
+2. Implement connection status display
+3. Add visual styling for different message types
+4. Improve timeout error messages
+5. Add console logging for debugging
+6. Test with actual user interaction
+
+### 3. Actions Performed:
+
+**Frontend Changes (`frontend/chat.html`):**
+- Added complete WebSocket lifecycle handling:
+  - `onopen`: Set wsReady flag, enable input, show "Connected" status
+  - `onerror`: Log error, show error message
+  - `onclose`: Disable input, show "Disconnected" status
+- Added status indicator above chat box showing connection state
+- Implemented CSS styling:
+  - `.user-msg`: Black text for user messages
+  - `.sophia-msg`: Blue text (#0066cc) for Sophia responses
+  - `.system-msg`: Gray italic for system messages
+  - `.error-msg`: Red bold for errors
+- Added console.log() debugging throughout
+- Disabled send button when not connected
+- Added proper error messages when trying to send while disconnected
+
+**Backend Changes (`plugins/tool_llm.py`):**
+- Improved timeout error message:
+  - Before: "I am having trouble thinking right now (timeout)."
+  - After: "⏱️ The AI model is taking too long to respond (timeout after 35 seconds). This might be due to high server load. Please try again in a moment."
+
+**Backend Changes (`plugins/interface_webui.py`):**
+- Added debug logging:
+  - Log session_id when attempting to send response
+  - Log active connections list
+  - Log success/failure of response delivery
+  - Detect and log session mismatch errors
+
+**Configuration Changes (`config/settings.yaml`):**
+- Tested multiple LLM models:
+  - Meta Llama 3.2 3B (free): Works fast (2s) in isolation, timeouts in planner
+  - Gemini 2.0 Flash Exp (free): Consistent timeouts (>35s)
+- Kept Meta Llama as primary model (best performance when working)
+
+### 4. Test Results:
+
+**Manual Testing:**
+- ✅ WebSocket connects successfully
+- ✅ Status shows "✓ Connected to Sophia"
+- ✅ User messages display in black
+- ✅ Sophia responses display in blue
+- ✅ System messages display in gray italic
+- ✅ Hard refresh (Ctrl+F5) loads new code
+- ✅ Connection state properly tracked
+
+**Discovered Issues:**
+- ⚠️ Free tier LLM models timeout frequently (>35s)
+- ⚠️ cognitive_planner requires LLM for every message
+- ⚠️ Simple greetings ("ahoj") trigger full planning cycle
+- ⚠️ Session mismatch can occur on reconnection
+
+**Documented in IDEAS.md:**
+- Issue #2: LLM API Instability (HIGH severity)
+- Proposed solutions: Fallback strategy, caching, or simpler response path
+
+### 5. Result:
+
+**Mission Status:** COMPLETED ✅
+
+**Changes:**
+- 1 frontend file: `frontend/chat.html` (complete rewrite with proper error handling)
+- 1 plugin modified: `plugins/tool_llm.py` (improved timeout message)
+- 1 plugin modified: `plugins/interface_webui.py` (debug logging)
+- 1 config updated: `config/settings.yaml` (tested multiple models)
+- 1 documentation: `IDEAS.md` (Issue #2 added)
+
+**Impact:**
+- WebUI now properly displays all responses ✅
+- Users see clear connection status ✅
+- Better error messages for timeouts ✅
+- Console logging aids debugging ✅
+- Improved UX with color-coded messages ✅
+
+**Known Limitations:**
+- Free tier LLM APIs are unreliable (frequent 35s timeouts)
+- Planner architecture requires LLM for every message
+- No fallback for simple conversational responses
+- Documented as Issue #2 in IDEAS.md for future work
+
+**Compliance:**
+- ✅ AGENTS.md Rule #1: No core modifications (only plugins and frontend)
+- ✅ AGENTS.md Rule #6: All code in English
+- ✅ AGENTS.md Rule #7: Issues documented in IDEAS.md
+
+---
+## �� BUG FIX: LLM Tool Timeout Implementation
 **Agent:** GitHub Copilot (AI Developer)  
 **Date:** 2025-10-29  
 **Status:** COMPLETED ✅

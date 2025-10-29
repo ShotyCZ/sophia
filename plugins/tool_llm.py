@@ -102,7 +102,10 @@ class LLMTool(BasePlugin):
             context.logger.info("LLM response received successfully.")
         except asyncio.TimeoutError:
             context.logger.error(f"LLM call timed out after 35 seconds")
-            context.payload["llm_response"] = "I am having trouble thinking right now (timeout)."
+            context.payload["llm_response"] = (
+                "⏱️ The AI model is taking too long to respond (timeout after 35 seconds). "
+                "This might be due to high server load. Please try again in a moment."
+            )
         except Exception as e:
             context.logger.error(f"Error calling LLM: {e}", exc_info=True)
             context.payload["llm_response"] = "I am having trouble thinking right now."

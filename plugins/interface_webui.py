@@ -77,5 +77,10 @@ class WebUIInterface(BasePlugin):
 
     async def send_response(self, session_id: str, message: str):
         """Sends a message back to a specific web client."""
+        logger.info(f"Attempting to send response to session_id: {session_id}")
+        logger.info(f"Active connections: {list(self.connections.keys())}")
         if session_id in self.connections:
             await self.connections[session_id].send_text(message)
+            logger.info(f"Response sent to {session_id}")
+        else:
+            logger.error(f"Session {session_id} not found in connections!")

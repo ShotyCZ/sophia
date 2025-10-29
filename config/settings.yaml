@@ -1,5 +1,5 @@
 llm:
-  model: "openrouter/meta-llama/llama-3.2-3b-instruct:free"  # Free tier model that works
+  model: "openrouter/meta-llama/llama-3.2-3b-instruct:free"  # Fast free model (2s response)
   api_key: "${OPENROUTER_API_KEY}" # SECURITY: API key from environment variable
 
 plugins:
