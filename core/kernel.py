@@ -199,6 +199,10 @@ class Kernel:
                 if single_run_input:
                     context.user_input = single_run_input
                     self.is_running = False  # End the loop after this run
+                    # Call interface to register callbacks for non-interactive mode
+                    interface_plugins = self.plugin_manager.get_plugins_by_type(PluginType.INTERFACE)
+                    for plugin in interface_plugins:
+                        context = await plugin.execute(context=context)
                 else:
                     context.user_input = None
                     context.payload = {}

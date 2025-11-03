@@ -58,6 +58,12 @@ def check_venv():
 
 async def main():
     """The main entry point of the application."""
+    # Suppress warnings before any other imports
+    import warnings
+    warnings.filterwarnings("ignore", message="Langfuse.*")
+    warnings.filterwarnings("ignore", message="Authentication error.*")
+    warnings.filterwarnings("ignore", module="chromadb")
+
     check_venv()
     load_dotenv()
     
