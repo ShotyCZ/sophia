@@ -1,4 +1,26 @@
 ---
+**Mission:** TUI UX Fix Implementation
+**Agent:** Jules
+**Date:** 2025-11-03
+**Status:** COMPLETED
+
+**1. Plan:**
+*   Refactor `plugins/interface_terminal_scifi.py` for a flicker-free, two-panel TUI.
+*   Modify `core/scifi_logging.py` to integrate with the new TUI.
+*   Update `run.py` to suppress startup warnings.
+*   Verify the implementation.
+*   Update documentation.
+
+**2. Actions Taken:**
+*   Refactored `plugins/interface_terminal_scifi.py` to use a `rich.Live` two-panel layout with a scrollable conversation panel and a fixed log panel. Disabled auto-refresh and added manual `refresh()` calls. Implemented `stdout`/`stderr` redirection and a `_booted` flag to prevent duplicate boot sequences.
+*   Modified `core/scifi_logging.py` to integrate with the new TUI. The `SciFiLoggingHandler` now calls the `update_log_display` method on the interface plugin to display logs in the bottom panel.
+*   Updated `run.py` to suppress startup warnings by adding `warnings.filterwarnings` at the top of the `main()` function.
+*   Verified the implementation by running the application in both non-interactive and interactive modes. The TUI now launches successfully in both modes without crashing.
+*   Added the `version` property back to the `InterfaceTerminalSciFi` class to fix an issue with the interactive mode fallback.
+
+**3. Outcome:**
+*   The TUI has been successfully refactored to a flicker-free, two-panel layout with a sticky bottom panel for logs. The application now provides a much-improved user experience, with a clean startup and smooth updates.
+---
 **Mission:** #18: Phase 2 - Background Process Management Implementation
 **Agent:** GitHub Copilot (Implementation Mode)
 **Date:** 2025-11-03
@@ -93,7 +115,7 @@ TOTAL PHASE 2:                            15/15 PASSED (100%)
 
 **Process Lifecycle:**
 ```
-STARTING → RUNNING → (COMPLETED | FAILED | TIMEOUT | CANCELLED)
+STARTING → RUNNING → (COMPLETED | FAILED | TIMEOUT | CANCELled)
             ↓
     Events Emitted (PROCESS_STARTED, PROCESS_STOPPED, PROCESS_FAILED)
 ```

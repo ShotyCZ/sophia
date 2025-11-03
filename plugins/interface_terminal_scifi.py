@@ -1,38 +1,38 @@
 """
-🚀 SOPHIA TUI INTERFACE (UV/DOCKER STYLE)
+🚀 SOPHIA SCI-FI TERMINAL INTERFACE (UV/Docker Style)
 ═══════════════════════════════════════════════════════════════════════════════
 
-A flicker-free, UV/Docker-style terminal interface with:
-- Sticky bottom panel for logs
-- Scrollable top panel for conversation
-- Clean, single-boot startup sequence
-- Proper stdout/stderr redirection to the UI
+A flicker-free, cyberpunk-inspired terminal interface with:
+- A sticky bottom panel for logs (UV/Docker style)
+- A scrollable top panel for conversation history
+- Manual refresh for a smooth, non-blinking experience
+- Proper stdout/stderr redirection to the log panel
+- Clean, single-run boot sequence
+
+Inspired by: uv, Docker, Cyberpunk 2077, Blade Runner
 """
 
 import asyncio
+import logging
 import sys
 from collections import deque
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, Deque
-
-# Add project root to path for standalone execution
-if __name__ == "__main__":
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from rich.console import Console
-from rich.panel import Panel
-from rich.layout import Layout
-from rich.text import Text
-from rich.live import Live
-from rich import box
 from io import StringIO
+from pathlib import Path
+from typing import Deque, List, Optional
 
-from plugins.base_plugin import BasePlugin, PluginType
+from rich import box
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
+
 from core.context import SharedContext
-import logging
+from plugins.base_plugin import BasePlugin, PluginType
 
-logger = logging.getLogger(__name__)
+# Get logger for stdout/stderr redirection
+logger = logging.getLogger()
 
 SOPHIA_LOGO = """
 [bold cyan]╔═══════════════════════════════════════════════╗
@@ -40,51 +40,43 @@ SOPHIA_LOGO = """
 ╚═══════════════════════════════════════════════╝[/bold cyan]
 """
 
-
 class OutputCapture:
-    """Redirects stdout/stderr to the TUI log panel."""
-    def __init__(self, interface_instance):
-        self.interface = interface_instance
+    """Captures stdout/stderr and redirects to the logging system."""
+    def __init__(self):
         self.original_stdout = sys.stdout
         self.original_stderr = sys.stderr
 
     def write(self, text: str):
-        """Capture text and route it to the log buffer."""
+        """Redirect print() and other stdout/stderr to the log panel via logging."""
         if text.strip():
-            self.interface.log_buffer.append(f"⚙️ {text.strip()}")
-            self.interface.update_log_display()
+            logger.info(text.strip())
 
     def flush(self):
-        """Flush the stream."""
         pass
 
     def start(self):
-        """Start redirecting stdout and stderr."""
         sys.stdout = self
         sys.stderr = self
 
     def stop(self):
-        """Stop redirecting and restore original streams."""
         sys.stdout = self.original_stdout
         sys.stderr = self.original_stderr
 
-
 class InterfaceTerminalSciFi(BasePlugin):
     """
-    UV/Docker-style terminal interface with two panels:
-    - Top: Scrollable conversation history
-    - Bottom: Sticky/fixed panel for latest log messages
+    UV/Docker-style terminal interface with two panels, no flicker, and sticky logging.
     """
 
     def __init__(self):
         super().__init__()
         self.console = Console()
-        self.message_history: Deque[str] = deque(maxlen=100)
-        self.log_buffer: Deque[str] = deque(maxlen=10)
+        self._booted: bool = False
         self._live: Optional[Live] = None
         self._layout: Optional[Layout] = None
-        self._booted = False
-        self._output_capture = None
+        self._output_capture: Optional[OutputCapture] = None
+
+        self.message_history: List[Text] = []
+        self.log_buffer: Deque[str] = deque(maxlen=10) # Fixed size for the bottom panel
 
     @property
     def name(self) -> str:
@@ -96,203 +88,167 @@ class InterfaceTerminalSciFi(BasePlugin):
 
     @property
     def version(self) -> str:
-        return "3.0.0"
+        return "2.0.0"
 
     def setup(self, config: dict) -> None:
-        """Initialize the terminal and start Live display."""
+        """Initialize the terminal, but only once."""
         if self._booted:
             logger.debug("Skipping duplicate TUI boot.")
             return
 
         self._show_boot_sequence_simple()
-        self._create_layout()
         self._start_live_mode()
 
-        # Start capturing stdout/stderr AFTER Live is initialized
-        self._output_capture = OutputCapture(self)
+        # CRITICAL: Capture stdout/stderr AFTER Live display starts
+        self._output_capture = OutputCapture()
         self._output_capture.start()
-        
+
         self._booted = True
+        logger.info("Sci-fi TUI initialized successfully.")
 
     def cleanup(self):
-        """Stop Live display and restore terminal state."""
-        self._stop_live_mode()
-        if hasattr(self, '_output_capture') and self._output_capture:
+        """Restore original stdout/stderr and stop the live display."""
+        if self._output_capture:
             self._output_capture.stop()
+        self._stop_live_mode()
+        logger.info("Sci-fi TUI cleaned up.")
 
     def _show_boot_sequence_simple(self):
-        """Display a clean, one-time boot logo."""
+        """Display the boot logo once without any animations."""
         self.console.clear()
-        self.console.print(Align.center(SOPHIA_LOGO))
-        self.console.rule("[bold green]SYSTEM ONLINE[/bold green]")
+        self.console.print(SOPHIA_LOGO)
+        self.console.print("[bold green]✓ System Initialized.[/bold green]")
+        self.console.print()
 
-    def _create_layout(self) -> None:
-        """Create the two-panel layout for conversation and logs."""
-        self._layout = Layout(name="root")
-        self._layout.split(
+    def _make_layout(self) -> Layout:
+        """Creates the two-panel layout for the TUI."""
+        layout = Layout()
+        layout.split_column(
             Layout(name="main", ratio=1),
             Layout(name="logs", size=12),
         )
-
-        # Initial empty content
-        self._layout["main"].update(self._create_conversation_panel())
-        self._layout["logs"].update(self._create_log_panel())
+        return layout
 
     def _start_live_mode(self):
-        """Start the Rich Live display with manual refresh."""
-        if not self._live and self._layout:
-            self._live = Live(
-                self._layout,
-                console=self.console,
-                screen=False,
-                auto_refresh=False,
-                transient=False,
-                redirect_stdout=False,  # Manual redirection
-                redirect_stderr=False,
-            )
-            self._live.start(refresh=True)
+        """Initializes and starts the Rich Live display."""
+        if self._live and self._live.is_started:
+            return
+
+        self._layout = self._make_layout()
+        self._layout["main"].update(self._render_conversation_panel())
+        self._layout["logs"].update(self._render_log_panel())
+
+        self._live = Live(
+            self._layout,
+            console=self.console,
+            refresh_per_second=4, # A small refresh rate is ok, but we will rely on manual refresh
+            auto_refresh=False,
+            screen=False,
+            transient=False,
+            redirect_stdout=False, # Manual redirection
+            redirect_stderr=False, # Manual redirection
+        )
+        self._live.start(refresh=True)
 
     def _stop_live_mode(self):
-        """Stop the Rich Live display."""
-        if self._live:
+        """Stops the Rich Live display."""
+        if self._live and self._live.is_started:
             self._live.stop()
             self._live = None
 
     def _refresh_display(self):
-        """Manually refresh the Live display if it's active."""
+        """Manually refreshes the Live display if it's active."""
         if self._live and self._live.is_started:
             self._live.refresh()
 
-    def _create_conversation_panel(self) -> Panel:
-        """Create the panel for displaying conversation history."""
-        conversation_text = "\n".join(self.message_history)
+    def _render_conversation_panel(self) -> Panel:
+        """Renders the top panel with the conversation history."""
+        conversation = Text("\n").join(self.message_history)
         return Panel(
-            Text(conversation_text, justify="left"),
-            title="[bold]💬 CONVERSATION[/bold]",
-            border_style="cyan",
+            conversation,
+            title="[bold magenta]💬 CONVERSATION[/bold magenta]",
+            border_style="magenta",
             box=box.ROUNDED,
         )
 
-    def _create_log_panel(self) -> Panel:
-        """Create the panel for displaying log messages."""
+    def _render_log_panel(self) -> Panel:
+        """Renders the bottom panel with the latest log entries."""
         log_text = "\n".join(self.log_buffer)
         return Panel(
-            Text(log_text, justify="left"),
-            title="[bold]⚙️ System Activity[/bold]",
-            border_style="magenta",
+            log_text,
+            title="[bold cyan]⚙️ System Activity[/bold cyan]",
+            border_style="cyan",
             box=box.ROUNDED,
         )
 
     def display_message(self, role: str, content: str):
         """
-        Add a message to the conversation panel and refresh.
-        
-        Args:
-            role: 'user' or 'assistant'
-            content: Message text
+        Adds a message to the conversation history and refreshes the display.
         """
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
+        message = Text()
+
         if role.lower() == "user":
-            prefix = f"╭─ [dim][{timestamp}][/dim] [bold yellow]👤 YOU[/bold yellow]"
-            message = f"│ │ {content}\n│ ╰─"
-        else:
-            prefix = f"╭─ [dim][{timestamp}][/dim] [bold cyan]🤖 SOPHIA[/bold cyan]"
-            message = f"│ │ {content}\n│ ╰─"
+            message.append(f"╭─ [{timestamp}] 👤 YOU\n", style="bold yellow")
+            message.append(f"│ │ {content}\n")
+            message.append("│ ╰─\n")
+        else: # assistant
+            message.append(f"╭─ [{timestamp}] 🤖 SOPHIA\n", style="bold cyan")
+            message.append(f"│ │ {content}\n", style="cyan")
+            message.append("│ ╰─\n")
 
-        full_message = f"{prefix}\n{message}"
-        self.message_history.append(full_message)
-        
+        self.message_history.append(message)
+
         if self._layout:
-            self._layout["main"].update(self._create_conversation_panel())
+            self._layout["main"].update(self._render_conversation_panel())
             self._refresh_display()
 
-    def update_log_display(self):
-        """Update the log panel with the latest messages and refresh."""
+    def update_log_display(self, new_log_entry: str):
+        """
+        Adds a new entry to the log buffer and refreshes the display.
+        This method is intended to be called by the custom logging handler.
+        """
+        self.log_buffer.append(new_log_entry)
         if self._layout:
-            self._layout["logs"].update(self._create_log_panel())
+            self._layout["logs"].update(self._render_log_panel())
             self._refresh_display()
 
-    def get_user_input(self, prompt: str = "You") -> str:
-        """
-        Temporarily stop Live display to get user input, then restart.
-        """
-        self._stop_live_mode()
-        
-        try:
-            from rich.prompt import Prompt
-            user_input = Prompt.ask(f"[bold yellow]{prompt}[/bold yellow]")
-        except:
-            # Fallback for terminals not supporting rich.prompt
-            self.console.print(f"[bold yellow]{prompt}:[/bold yellow] ", end="")
-            user_input = input()
-        
-        self._start_live_mode()
-        return user_input
+    def _handle_response(self, response: str):
+        """Callback function to handle the final response from the kernel."""
+        self.display_message("assistant", response)
 
     async def execute(self, *, context: SharedContext) -> SharedContext:
         """
-        Handle non-interactive and interactive execution.
+        Displays user input and registers the response callback.
         """
-        # Register a callback for the kernel to send the response back
+        # Register the callback in the LISTENING phase so the kernel can call it
         if context.current_state == "LISTENING":
             context.payload["_response_callback"] = self._handle_response
-        
-        # Display user's initial message if provided
+
+        # Display the user's message as soon as it's received
         if context.user_input:
             self.display_message("user", context.user_input)
-        
+
+        # For interactive mode, we need to get input.
+        # This part is handled by the original interface_terminal, so we just pass context.
         return context
 
-    def _handle_response(self, response: str):
-        """Callback function to display the assistant's response."""
-        self.display_message("assistant", response)
+    def get_user_input(self, prompt: str = "You") -> str:
+        """
+        Gets user input from the console.
+        This is called by the consciousness loop for interactive mode.
+        NOTE: This will temporarily stop the Live display to get input cleanly.
+        """
+        if self._live:
+            self._live.stop()
 
-    def display_error(self, error: str):
-        """Display an error in the log panel."""
-        self.log_buffer.append(f"[red]❌ ERROR: {error}[/red]")
-        self.update_log_display()
+        try:
+            user_input = self.console.input(f"[bold yellow]>{prompt}: [/bold yellow]")
+        except (KeyboardInterrupt, EOFError):
+            self.cleanup()
+            sys.exit(0)
+        finally:
+            if self._live:
+                self._live.start(refresh=True)
 
-async def demo():
-    """Demonstrate the UV-style TUI."""
-    terminal = InterfaceTerminalSciFi()
-    terminal.setup({})
-    
-    terminal.display_message("user", "Hello Sophia!")
-    await asyncio.sleep(1)
-    
-    terminal.log_buffer.append("⚙️ Task classified as 'simple_query'")
-    terminal.update_log_display()
-    await asyncio.sleep(0.5)
-    
-    terminal.log_buffer.append("⚙️ Calling LLM 'gemini-2.0-flash-001'")
-    terminal.update_log_display()
-    await asyncio.sleep(1.5)
-    
-    terminal.display_message("assistant", "Hello! How can I assist you today?")
-    terminal.log_buffer.append("⚙️ Response received successfully")
-    terminal.update_log_display()
-    
-    await asyncio.sleep(1)
-    
-    # Simulate more conversation to test scrolling
-    for i in range(10):
-        terminal.display_message("user", f"This is message number {i+2} in a long conversation.")
-        await asyncio.sleep(0.3)
-        terminal.display_message("assistant", f"I am responding to message {i+2}.")
-        terminal.log_buffer.append(f"⚙️ Processed message {i+2}")
-        terminal.update_log_display()
-        await asyncio.sleep(0.3)
-
-    terminal.display_error("This is a test error message.")
-    
-    # In a real app, you'd wait for user input here
-    # user_input = terminal.get_user_input("Your turn")
-    # terminal.display_message("user", user_input)
-    
-    await asyncio.sleep(5)
-    terminal.cleanup()
-    print("Demo finished.")
-
-if __name__ == "__main__":
-    asyncio.run(demo())
+        return user_input
