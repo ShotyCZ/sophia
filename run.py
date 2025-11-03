@@ -2,6 +2,8 @@ import asyncio
 import sys
 import os
 import argparse
+import warnings
+import logging
 from dotenv import load_dotenv
 from core.kernel import Kernel
 from plugins.base_plugin import PluginType
@@ -13,15 +15,12 @@ async def _load_scifi_interface(kernel, ui_style: str):
         if ui_style == "matrix":
             from plugins.interface_terminal_matrix import InterfaceTerminalMatrix
             interface = InterfaceTerminalMatrix()
-            print("🟢 Loading Matrix interface... 'Follow the white rabbit!' 🐰")
         elif ui_style == "startrek":
             from plugins.interface_terminal_startrek import InterfaceTerminalStarTrek
             interface = InterfaceTerminalStarTrek()
-            print("🟡 Loading Star Trek LCARS interface... 'Make it so!' 🖖")
         elif ui_style == "cyberpunk":
             from plugins.interface_terminal_scifi import InterfaceTerminalSciFi
             interface = InterfaceTerminalSciFi()
-            print("🌈 Loading Cyberpunk interface... Maximum WOW! ⚡")
         else:
             return None  # Classic mode, use default
         
@@ -33,13 +32,11 @@ async def _load_scifi_interface(kernel, ui_style: str):
         kernel.plugin_manager._plugins[PluginType.INTERFACE].append(interface)
         kernel.all_plugins_map[interface.name] = interface
         
-        print(f"✅ {interface.name} ready!\n")
-        
         return interface  # Return interface for logging hookup
         
     except Exception as e:
-        print(f"⚠️  Warning: Could not load {ui_style} interface: {e}")
-        print("   Falling back to classic terminal...")
+        # Use logging instead of print for errors
+        logging.warning(f"Could not load {ui_style} interface: {e}. Falling back to classic terminal.")
         return None
 
 
@@ -58,6 +55,12 @@ def check_venv():
 
 async def main():
     """The main entry point of the application."""
+    # Suppress irrelevant warnings before any other output
+    warnings.filterwarnings("ignore", message=".*Langfuse.*")
+    warnings.filterwarnings("ignore", message=".*Authentication error.*")
+    warnings.filterwarnings("ignore", module="chromadb")
+    logging.captureWarnings(True)
+
     check_venv()
     load_dotenv()
     
@@ -84,25 +87,13 @@ async def main():
     # Determine UI style (CLI arg > ENV var > default cyberpunk)
     ui_style = args.ui or os.getenv("SOPHIA_UI_STYLE", "cyberpunk")
     
-    print("Starting Sophia's kernel...")
-    if args.use_event_driven:
-        print("🚀 Event-driven architecture ENABLED (Phase 1)")
-    
-    # Print UI style
-    ui_icons = {
-        "matrix": "🟢 MATRIX",
-        "startrek": "🟡 STAR TREK LCARS",
-        "cyberpunk": "🌈 CYBERPUNK",
-        "classic": "⚪ CLASSIC"
-    }
-    print(f"🎨 UI Style: {ui_icons.get(ui_style, ui_style.upper())}")
-    
     kernel = Kernel(use_event_driven=args.use_event_driven)
     
     # IMPORTANT: Initialize kernel FIRST to load all plugins
     await kernel.initialize()
     
     # THEN replace interface plugin if sci-fi mode requested
+    scifi_interface = None
     if ui_style != "classic":
         scifi_interface = await _load_scifi_interface(kernel, ui_style)
         
@@ -110,22 +101,39 @@ async def main():
         if scifi_interface:
             from core.scifi_logging import install_scifi_logging
             install_scifi_logging(scifi_interface)
-            print(f"✨ Sci-fi logging enabled - all output now in {ui_style.upper()} style!")
 
-    # Zjistíme, jestli byl zadán vstup jako argument
+    # In non-interactive mode, we don't need the main loop, just a single run
     if args.input:
         user_input = " ".join(args.input)
-        print(f"Running in non-interactive mode with input: '{user_input}'")
         await kernel.consciousness_loop(single_run_input=user_input)
     else:
-        # Spustíme normální interaktivní smyčku
-        terminal_plugins = kernel.plugin_manager.get_plugins_by_type(PluginType.INTERFACE)
-        for plugin in terminal_plugins:
-            if plugin.name == "interface_terminal" and hasattr(plugin, "prompt"):
-                plugin.prompt()
-        await kernel.consciousness_loop()
+        # In interactive mode, find the right interface to get input
+        interface_plugins = kernel.plugin_manager.get_plugins_by_type(PluginType.INTERFACE)
+        if not interface_plugins:
+            logging.critical("No interface plugin found. Cannot get user input.")
+            return
 
-    print("Sophia's kernel has been terminated.")
+        active_interface = interface_plugins[0]
+        if not hasattr(active_interface, 'get_user_input') or not callable(active_interface.get_user_input):
+            logging.critical(f"Interface '{active_interface.name}' does not support interactive input.")
+            return
+
+        # Custom interactive loop to use the new TUI
+        while True:
+            try:
+                user_input = active_interface.get_user_input()
+                if user_input.strip().lower() in ['exit', 'quit']:
+                    print("Exiting...")
+                    break
+                # Manually run a single "turn" of the consciousness loop
+                await kernel.consciousness_loop(single_run_input=user_input)
+            except (KeyboardInterrupt, EOFError):
+                break
+            finally:
+                if hasattr(active_interface, 'cleanup') and callable(active_interface.cleanup):
+                    active_interface.cleanup()
+
+    logging.info("Sophia's kernel has been terminated.")
 
 
 if __name__ == "__main__":
